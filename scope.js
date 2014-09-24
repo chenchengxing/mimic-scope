@@ -3,10 +3,11 @@ function Scope() {
   this.$$dirtyWatchfn;
 }
 
-Scope.prototype.$watch = function(watchFn, listenerFn) {
+Scope.prototype.$watch = function(watchFn, listenerFn, deep) {
   var watcher = {
     watchFn: watchFn,
-    listenerFn: listenerFn
+    listenerFn: listenerFn,
+    valueEq: !!deep
   };
   this.$$watchers.push(watcher);
 };
@@ -33,9 +34,9 @@ Scope.prototype.$digestOnce = function() {
     } else {
       var newValue = watcher.watchFn.apply(self);
       var oldValue = watcher.last;
-      if (newValue !== oldValue) {
+      if (!self.$equal(newValue, oldValue, watcher.valueEq)) {
         watcher.listenerFn.call(self, newValue, oldValue);
-        watcher.last = newValue;
+        watcher.last =  (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
         dirty = true;
         self.$$dirtyWatchfn = watcher.watchFn;
       }
@@ -43,25 +44,23 @@ Scope.prototype.$digestOnce = function() {
   });
   return dirty;
 };
-
+Scope.prototype.$equal = function (newValue, oldValue, valueEq) {
+  if (valueEq) {
+    return _.isEqual(newValue, oldValue);
+  }
+  //deal with NaN
+  return newValue === oldValue || 
+    (typeof newValue === 'number' && typeof oldValue === 'number' &&
+        isNaN(newValue) && isNaN(oldValue));
+};
 var scope = new Scope();
-
-scope.array = _.range(2);
-var watchExecutions = 0;
-_.times(2, function(i) {
-  scope.$watch(
-    function() {
-      watchExecutions++;
-      return this.array[i];
-    },
-    function(newValue, oldValue, scope) {}
-  );
-});
-scope.$digest();
-
-console.log(watchExecutions);
-
-scope.array[1] = 100;
+scope.a = [1, 2, 3];
+scope.$watch(function () {
+  return this.a;
+}, function () {
+  console.log('listen')
+}, true);
 
 scope.$digest();
-console.log(watchExecutions);
+scope.a[0] = 4;
+scope.$digest();
