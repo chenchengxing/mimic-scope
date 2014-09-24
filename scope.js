@@ -53,6 +53,10 @@ Scope.prototype.$equal = function (newValue, oldValue, valueEq) {
     (typeof newValue === 'number' && typeof oldValue === 'number' &&
         isNaN(newValue) && isNaN(oldValue));
 };
+Scope.prototype.$apply = function(fn) {
+  fn();
+  this.$digest();
+};
 var scope = new Scope();
 scope.a = [1, 2, 3];
 scope.$watch(function () {
@@ -62,5 +66,28 @@ scope.$watch(function () {
 }, true);
 
 scope.$digest();
-scope.a[0] = 4;
-scope.$digest();
+
+// 自动开启一个digest
+scope.$apply(function () {
+  scope.a[0] = 4;
+  //below nicer one
+  // try {
+  //   return this.$eval(expr);
+  // } finally {
+  //   this.$digest();
+  // }
+});
+
+var ChildScope = function() { };
+ChildScope.prototype = scope;
+var child = new ChildScope();
+
+child.$watch(function () {
+  return this.a;
+}, function (newValue) {
+  console.log('listen child', newValue)
+}, true);
+child.$digest();
+child.a.push(1);
+child.$digest();
+console.log(scope.a)
